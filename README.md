@@ -90,7 +90,14 @@ For a hand-built rebuild without the installer, see `BUILD.md`.
 
 Operational in the VU2CPL shack since 2026-05-09 (first on a QLG1 tap,
 on a dedicated NEO-M8N since 2026-05-11). See HANDOVER.md "Operational
-checks" for diagnosis commands.
+checks" for diagnosis commands, and "Known gotchas" for the u.FL
+antenna reseat lesson and the log2ram capacity limits that shaped the
+current chrony logging config.
+
+Rolling health is monitored on the Pi by a small `gpshealth` script
+(`~/bin/gpshealth`, started at boot by `gpshealth.service`) — one
+coloured line every 30 s to `/tmp/gpshealth.log` and the systemd
+journal. Details in HANDOVER.md.
 
 ## License
 

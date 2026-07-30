@@ -573,6 +573,19 @@ systemctl is-active log2ram             # active
 df -h /var/log                          # tmpfs (~128M by default)
 ```
 
+**Watch out** — the default 128 MB is easy to overflow if you enable
+chrony's `log measurements statistics tracking refclocks` for a long
+investigation: the per-second `measurements.log` + `refclocks.log`
+streams grow ~15 MB/day, and with default weekly logrotate keeping a
+few generations that fills 128 MB in about three weeks. Any process
+writing to `/var/log/*` then gets `ENOSPC`, but `df -h /` looks fine
+because the SD card itself isn't full. The steady-state chrony
+config in this repo (`log tracking` only, plus a tight
+`/etc/logrotate.d/chrony`) stays well under the cap. If you turn the
+detailed logging back on, either drop logrotate to `rotate 1` or bump
+`SIZE=` in `/etc/log2ram.conf`. See HANDOVER.md "Known gotchas" for
+the full story.
+
 ### Boot from USB SSD (better long-term)
 
 The Pi 3B can boot from USB. Burn the same OS to a USB stick or small SSD

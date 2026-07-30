@@ -183,6 +183,83 @@ sntp gpsntp.local                    # Small offset, small dispersion
 sudo systemsetup -getnetworktimeserver  # Should report gpsntp.local
 ```
 
+### `gpshealth` — one-line rolling health monitor
+
+Installed 2026-07-31 at `/home/vu2cpl/bin/gpshealth`, started at boot by
+`gpshealth.service` (systemd unit at `/etc/systemd/system/gpshealth.service`,
+runs as user `vu2cpl` after `chrony.service` and `gpsd.service`). Samples
+`gpspipe` + `chronyc tracking` every 30 s, prints one coloured line, and
+appends to `/tmp/gpshealth.log` (systemd also captures stdout to the
+journal, which survives reboots).
+
+```
+12:00:18 OK   SVs= 6 mode=3 TDOP=1.54 stratum=1 refid=PPS off=42ns rms=7ns
+```
+
+Verdict thresholds:
+- **OK** — mode 3, ≥5 SVs, TDOP ≤ 5, `refid=PPS`, stratum 1.
+- **WARN** — mode 3 but degraded (few SVs or TDOP > 5).
+- **CRIT** — no 3D fix, or chrony has fallen off PPS discipline (refid
+  not `PPS`, or stratum > 1).
+
+Watch live:
+
+```sh
+journalctl -u gpshealth -f          # durable, across reboots
+tail -f /tmp/gpshealth.log          # RAM-backed via log2ram, cleared on reboot
+```
+
+Both the script (`~/bin/gpshealth`) and the systemd unit are Pi-local —
+not (yet) checked into this repo. Recreate from HANDOVER + the earlier
+Claude session if the Pi is rebuilt.
+
+## Known gotchas
+
+### u.FL antenna joint drifts intermittent
+
+Late July 2026 the Pi went through a two-day period of losing fix
+several times a day; each recovery took bringing the antenna outside.
+Investigation (`chronyc sources`, per-SV SNR from `$GPGSV`, and DOP)
+showed the antenna was uniformly ~10 dB down on mid-elevation SVs and
+another ~15 dB down at zenith — RF-path attenuation, not a receiver
+problem. Root cause was the **u.FL pigtail-to-antenna micro-connector**
+getting flaky (monsoon humidity likely). The fix was to unplug and
+re-seat the u.FL — jiggling it during an antenna swap counted as a
+reseat too, which is why the symptom kept "coming back" every time the
+antenna was moved. When SNRs go soft again in future, reseat the u.FL
+first before assuming the module has failed. A dab of self-fusing
+silicone tape or a properly-terminated SMA-only run to a rooftop
+antenna would make the joint failure-proof.
+
+### `log2ram` will overflow if chrony logs everything
+
+`/var/log` is on **log2ram** (128 MB tmpfs), so any process writing to
+`/var/log/*` gets `ENOSPC` once that RAM disk fills — even though the
+SD card itself has 24 GB free. `df -h` will look normal for `/`; look
+at the `log2ram` row.
+
+During the antenna investigation the chrony config was expanded to
+`log measurements statistics tracking refclocks`. The two per-second
+streams (`measurements.log`, `refclocks.log`) grow at ~15 MB/day and,
+combined with weekly logrotate keeping several generations, filled
+log2ram to 100 % in about 3 weeks (2026-07-07 → 2026-07-31).
+
+**Steady-state config** is:
+
+- `chrony.conf`: `log tracking` only (one line every ~16 s, ~1 MB/week).
+- `/etc/logrotate.d/chrony`: weekly, `rotate 2`, `compress`,
+  `delaycompress`, `maxsize 10M`, `copytruncate`. Caps total chrony
+  log footprint at ~20 MB uncompressed, few MB compressed.
+
+If a future incident needs the per-second detail back, enable the fuller
+`log measurements statistics tracking refclocks` line, but *also* drop
+`rotate 2` to `rotate 1` (or bump log2ram's `SIZE=` in
+`/etc/log2ram.conf` to 256 MB) so log2ram doesn't fill in a week. And
+remember to revert to `log tracking` when the investigation is done.
+
+Rescue procedure if it fills again: `sudo rm /var/log/chrony/*.log.[123]`
+frees the rotated generations immediately.
+
 ## Things explicitly *not* in scope
 
 - Any embedded-firmware development (the ESP32 path was dropped).

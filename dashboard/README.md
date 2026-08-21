@@ -53,9 +53,17 @@ password in the clear, `install.sh` sets that file to `chmod 600`.
 
 For the Pi-side cron job, set these as additional env lines at the top
 of `/etc/cron.d/gpsntp-mqtt` (alongside the existing `SHELL=` and
-`PATH=` lines). For SwiftBar, the plugin will pick up exported env
-vars from your shell, or you can wrap the plugin in a parent script
-that exports them.
+`PATH=` lines). **For the SwiftBar plugin**, SwiftBar doesn't inherit
+the shell env reliably, so the plugin sources
+`~/.config/vu2cpl-shack.env` (chmod 600) for `MQTT_USER`/`MQTT_PASS`
+(and optionally `MQTT_BROKER`/`MQTT_TOPIC`). The plugin reads with the
+`svc` account since the shack broker requires auth:
+
+```bash
+mkdir -p ~/.config
+printf 'MQTT_BROKER=192.168.1.169\nMQTT_USER=svc\nMQTT_PASS=<svc-password>\n' > ~/.config/vu2cpl-shack.env
+chmod 600 ~/.config/vu2cpl-shack.env
+```
 
 ## Pi-side install
 

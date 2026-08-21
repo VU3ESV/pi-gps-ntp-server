@@ -29,11 +29,19 @@
 set -u
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
+# Broker auth (the shack broker requires it since 2026-08-21). SwiftBar does
+# not inherit the shell env reliably, so read MQTT_USER/MQTT_PASS (and
+# optionally MQTT_BROKER/MQTT_TOPIC) from a per-user env file, chmod 600.
+# This read-only consumer uses the 'svc' account (ACL grants it shack/#).
+[ -f "$HOME/.config/vu2cpl-shack.env" ] && . "$HOME/.config/vu2cpl-shack.env"
+
 BROKER="${MQTT_BROKER:-192.168.1.169}"
 TOPIC="${MQTT_TOPIC:-shack/gpsntp/chrony}"
 DASHBOARD_URL="${NODE_RED_URL:-http://192.168.1.169:1880/ui}"
+AUTH=""
+[ -n "${MQTT_USER:-}" ] && AUTH="-u $MQTT_USER -P $MQTT_PASS"
 
-DATA="$(mosquitto_sub -h "$BROKER" -t "$TOPIC" -C 1 -W 5 2>/dev/null || true)"
+DATA="$(mosquitto_sub -h "$BROKER" $AUTH -t "$TOPIC" -C 1 -W 5 2>/dev/null || true)"
 
 if [ -z "$DATA" ]; then
   echo "🛰 ?? | color=red"

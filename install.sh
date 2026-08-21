@@ -97,6 +97,9 @@ EOM
   section "Configuration"
   MQTT_BROKER="$(ask 'MQTT broker IP (leave blank to skip publisher)' '192.168.1.169')"
   MQTT_TOPIC="$(ask 'MQTT topic' 'shack/gpsntp/chrony')"
+  MQTT_USER="$(ask 'MQTT username (blank = anonymous)' '')"
+  MQTT_PASS=""
+  [ -n "$MQTT_USER" ] && MQTT_PASS="$(ask 'MQTT password' '')"
   LAN_ALLOW="$(ask 'LAN subnet to serve NTP to (CIDR)' '192.168.1.0/24')"
 
   # ----- sanity check the Pi ----------------------------------------------
@@ -195,9 +198,12 @@ SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 MQTT_BROKER=${MQTT_BROKER}
 MQTT_TOPIC=${MQTT_TOPIC}
+${MQTT_USER:+MQTT_USER=${MQTT_USER}}
+${MQTT_PASS:+MQTT_PASS=${MQTT_PASS}}
 
 * * * * * root /usr/local/bin/gpsntp-mqtt-publish.sh >/dev/null 2>&1
 EOF
+    sudo chmod 600 /etc/cron.d/gpsntp-mqtt
     ok "/etc/cron.d/gpsntp-mqtt installed (every minute)"
   else
     warn "Skipping MQTT publisher — no broker configured"

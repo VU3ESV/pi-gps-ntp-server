@@ -22,6 +22,12 @@ set -u
 
 BROKER="${MQTT_BROKER:-192.168.1.169}"
 TOPIC="${MQTT_TOPIC:-shack/gpsntp/chrony}"
+# Optional MQTT auth for the broker migration off anonymous access. Set
+# MQTT_USER / MQTT_PASS (the shack 'svc' account) in the cron env alongside
+# MQTT_BROKER (install.sh writes them to /etc/cron.d/gpsntp-mqtt). Empty
+# MQTT_USER ⇒ anonymous connect, backward-compatible.
+AUTH=""
+[ -n "${MQTT_USER:-}" ] && AUTH="-u $MQTT_USER -P $MQTT_PASS"
 HOST="$(hostname)"
 TS="$(date +%s)"
 
@@ -59,4 +65,4 @@ EOF
 )
 
 # ----- publish (retained, so subscribers get the latest snapshot on connect) -----
-mosquitto_pub -h "$BROKER" -t "$TOPIC" -m "$JSON" -r
+mosquitto_pub -h "$BROKER" $AUTH -t "$TOPIC" -m "$JSON" -r

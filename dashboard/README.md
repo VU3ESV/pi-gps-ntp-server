@@ -43,7 +43,13 @@ broker or topic without editing files:
 |---|---|---|
 | `MQTT_BROKER` | publisher + plugin | `192.168.1.169` |
 | `MQTT_TOPIC` | publisher + plugin | `shack/gpsntp/chrony` |
+| `MQTT_USER` | publisher (auth) | *(empty = anonymous)* |
+| `MQTT_PASS` | publisher (auth) | *(empty)* |
 | `NODE_RED_URL` | plugin (dropdown link only) | `http://192.168.1.169:1880/ui` |
+
+If the broker requires auth, set `MQTT_USER` / `MQTT_PASS` (empty user ⇒
+anonymous connect). Because they go in `/etc/cron.d/gpsntp-mqtt` with the
+password in the clear, `install.sh` sets that file to `chmod 600`.
 
 For the Pi-side cron job, set these as additional env lines at the top
 of `/etc/cron.d/gpsntp-mqtt` (alongside the existing `SHELL=` and

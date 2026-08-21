@@ -162,6 +162,10 @@ Pi or to anything actively transmitting.
   (`/usr/local/bin/gpsntp-mqtt-publish.sh`, every minute) snapshots
   `chronyc -c tracking` plus the latest gpsd TPV/SKY and publishes a
   retained JSON message to `shack/gpsntp/chrony` on the same broker.
+  **MQTT auth (2026-08-21):** the shack broker now requires
+  authentication; this publisher uses the `svc` account, with
+  `MQTT_USER`/`MQTT_PASS` set as env lines in `/etc/cron.d/gpsntp-mqtt`
+  (chmod 600). `install.sh` prompts for them. Empty ⇒ anonymous.
   Two consumers: a "GPS NTP" tab in the Node-RED dashboard, and a
   macOS SwiftBar menu-bar widget that shows live stratum / offset /
   sat count and is one click away from the dashboard. Scripts, flow

@@ -409,15 +409,27 @@ refclock SHM 0 refid NMEA offset 0.0 delay 0.2 noselect
 # Kernel PPS — sub-microsecond. Locked to NMEA for second-numbering.
 refclock PPS /dev/pps0 lock NMEA refid PPS
 
-# Serve time to the LAN. Adjust to your subnet.
+# Serve time to the LAN. One line per network that must be served.
 allow 192.168.1.0/24
+allow 192.168.10.0/24
+allow 192.168.30.0/24
 
 # Don't serve to the internet
 deny all
 ```
 
-Adjust the `allow` line to match your LAN. Run `ip addr show eth0` and look
+Adjust the `allow` lines to match your LAN. Run `ip addr show eth0` and look
 at the `inet` line — if it's `192.168.0.42/24`, then `allow 192.168.0.0/24`.
+
+**Every VLAN that has clients needs its own `allow` line.** chrony answers
+only sources inside an `allow`; anything else is dropped silently — no log
+entry, no ICMP, the client just times out. A router rule permitting
+`udp/123` to the Pi does not help. This shack learned it the slow way:
+after the 2026-08-18 VLAN split the Pi kept `allow 192.168.1.0/24` alone,
+and for three weeks every Mac on VLAN 10 and every ESP on VLAN 30 got no
+reply while `chronyc clients` showed only 192.168.1.x (found 2026-09-10).
+Check with `sudo chronyc clients` — a client from every subnet you expect
+should be listed.
 
 Restart chrony:
 

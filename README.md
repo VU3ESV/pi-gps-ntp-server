@@ -51,8 +51,9 @@ dividers on TX and PPS before the Pi (Pi GPIO is **not** 5 V tolerant).
   works the same).
 - `gpsd` parsing NMEA from `/dev/serial0`, exporting PPS via SHM-2.
 - Linux kernel `pps-gpio` overlay on GPIO18 → `/dev/pps0`.
-- `chrony` with `refclock PPS lock NMEA refid PPS` and `allow` for the
-  LAN subnet.
+- `chrony` with `refclock PPS lock NMEA refid PPS` and one `allow` line
+  per LAN subnet that must be served (chrony silently ignores clients
+  outside `allow` — every VLAN with clients needs its own line).
 
 ## Quick start
 

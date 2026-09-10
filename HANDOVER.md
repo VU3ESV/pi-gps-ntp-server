@@ -19,6 +19,44 @@ For the build procedure that produced this state, see **BUILD.md**.
 This file is for context: who, why, what was considered, and what was
 decided.
 
+## Clients on the new VLANs were silently dropped — FIXED 2026-09-10
+
+**Symptom.** From the Mac mini (now 192.168.10.226 on the Trusted VLAN
+since the 2026-08-18 split) `sntp 192.168.1.158` timed out and Apple's
+`timed` logged "NTP failed 4 times" against `gpsntp.local`, although the
+name resolved, ping was 0.8 ms and the UniFi zone policy for Trusted is
+"Allow anywhere". Noticed while checking a clock-adjustment theory in an
+unrelated MSHV thread.
+
+**Cause.** `/etc/chrony/chrony.conf` still had only `allow 192.168.1.0/24`
+(+ `allow fd00::/8`). chronyd does not answer sources outside `allow` and
+says nothing about it. `sudo chronyc clients` listed only 192.168.1.x
+hosts — so for three weeks **no Mac on VLAN 10 and no ESP on VLAN 30 got
+GPS time**, whatever the router permitted (`vlan-setup`'s rule "IoT →
+.158 udp/123 Allow" was in place; its migration checks tested the mDNS
+name, not an NTP reply). The installer's re-run path also skipped the
+allow block whenever the refclock lines already existed.
+
+**Fix (on the Pi, 14:01 IST, Manoj's go).** Backup
+`/etc/chrony/chrony.conf.bak-20260910-140141`, then `allow
+192.168.10.0/24` and `allow 192.168.30.0/24` inserted after the existing
+line, `systemctl restart chrony`. Verified: a raw NTP packet from the Mac
+answered within 1.2 ms, `sntp` offset −2.5 ms, and `192.168.10.226`
+appeared in `chronyc clients` within a minute. PPS re-lock after the
+restart takes a few minutes (stratum shows 4 via the pool until then).
+
+**Made persistent here:** `install.sh` now takes a space-separated list
+(default = the three shack subnets), writes one `allow` per network, and
+on a re-run extends an existing config instead of skipping it; `BUILD.md`
+carries the same three lines and the warning; `README.md` says one line
+per VLAN.
+
+**Left for Manoj:** the Mac mini runs its own chrony (TimeSync project)
+against pool servers AND Apple `timed` against `gpsntp.local` — now that
+the Pi answers, both steer the same clock; pick one. And confirm an ESP
+on VLAN 30 actually syncs (e.g. `esp8266-gps-ntp` logs) — the allow line
+is in, the end-to-end check on the IoT side is not done.
+
 ## GPS swap — 2026-05-11
 
 Originally the Pi tapped the QRP Labs **QLG1** that was already feeding

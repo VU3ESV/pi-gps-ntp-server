@@ -100,7 +100,13 @@ EOM
   MQTT_USER="$(ask 'MQTT username (blank = anonymous)' '')"
   MQTT_PASS=""
   [ -n "$MQTT_USER" ] && MQTT_PASS="$(ask 'MQTT password' '')"
-  LAN_ALLOW="$(ask 'LAN subnet to serve NTP to (CIDR)' '192.168.1.0/24')"
+  # One CIDR per network that must be SERVED.  chrony answers only sources
+  # inside an `allow` -- everything else is dropped silently, with no log
+  # and no ICMP.  After the 2026-08-18 VLAN split the shack had three
+  # networks and the Pi still allowed one: every Mac on VLAN 10 and every
+  # ESP on VLAN 30 asked and got nothing, while the router's firewall rule
+  # said Allow (found 2026-09-10).  List them all here.
+  LAN_ALLOW="$(ask 'Subnet(s) to serve NTP to (CIDR, space-separated)' '192.168.1.0/24 192.168.10.0/24 192.168.30.0/24')"
 
   # ----- sanity check the Pi ----------------------------------------------
   section "Checking Pi"
@@ -169,8 +175,24 @@ EOF
   # ----- chrony ------------------------------------------------------------
   section "Configuring chrony"
   CHRONY_CONF=/etc/chrony/chrony.conf
+  ALLOW_LINES=""
+  for net in $LAN_ALLOW; do
+    ALLOW_LINES="${ALLOW_LINES}allow ${net}
+"
+  done
   if grep -q '^refclock PPS /dev/pps0' "$CHRONY_CONF"; then
     ok "chrony refclocks already present"
+    # Re-run on an existing Pi: make sure every requested subnet is served.
+    # (This is how the VLAN-10/30 clients were silently cut off for three
+    # weeks in 2026 -- the refclock check short-circuited the allow lines.)
+    ADDED=0
+    for net in $LAN_ALLOW; do
+      if ! grep -q "^allow ${net}\$" "$CHRONY_CONF"; then
+        echo "allow ${net}" | sudo tee -a "$CHRONY_CONF" >/dev/null
+        ADDED=1
+      fi
+    done
+    [ "$ADDED" = 1 ] && ok "chrony allow list extended to: ${LAN_ALLOW}" || ok "chrony allow list already covers: ${LAN_ALLOW}"
   else
     sudo tee -a "$CHRONY_CONF" >/dev/null <<EOF
 
@@ -178,8 +200,8 @@ EOF
 refclock SHM 0 refid NMEA offset 0.0 delay 0.2 noselect
 refclock PPS /dev/pps0 lock NMEA refid PPS
 
-# Serve time to the LAN
-allow ${LAN_ALLOW}
+# Serve time to the LAN -- one line per network that must be served
+${ALLOW_LINES}
 EOF
     ok "chrony refclocks + allow added"
   fi

@@ -423,23 +423,32 @@ EOM
 
   # ----- broker settings for the plugin --------------------------------------
   # SwiftBar doesn't inherit the shell env, so the plugin sources this file.
+  # The file is shared with other shack scripts (HA_*, UNIFI_*, ...): only
+  # our own MQTT_* keys are replaced, every other line is kept as it is.
   ENV_FILE="$HOME/.config/vu2cpl-shack.env"
   if [ -n "$MQTT_USER" ] || [ "$MQTT_PORT" != 1883 ]; then
     section "Writing broker settings"
     mkdir -p "$HOME/.config"
-    if [ -f "$ENV_FILE" ]; then
+    if [ -s "$ENV_FILE" ]; then
+      chmod 600 "$ENV_FILE"   # an old file keeps its mode, and its .bak copies it
       cp -p "$ENV_FILE" "$ENV_FILE.bak"
       info "Previous settings kept in $ENV_FILE.bak"
     fi
-    ( umask 077; : > "$ENV_FILE" )
-    chmod 600 "$ENV_FILE"   # before any secret lands in it (an old file keeps its mode)
-    echo "MQTT_BROKER=$MQTT_BROKER" >> "$ENV_FILE"
-    if [ "$MQTT_PORT" != 1883 ]; then echo "MQTT_PORT=$MQTT_PORT" >> "$ENV_FILE"; fi
-    if [ -n "$MQTT_CAFILE" ]; then echo "MQTT_CAFILE=$MQTT_CAFILE" >> "$ENV_FILE"; fi
-    if [ -n "$MQTT_USER" ]; then
-      printf 'MQTT_USER=%s\nMQTT_PASS=%s\n' "$MQTT_USER" "$MQTT_PASS" >> "$ENV_FILE"
-    fi
-    ok "$ENV_FILE written (chmod 600)"
+    ( umask 077; touch "$ENV_FILE" )
+    tmp="$(mktemp "$ENV_FILE.XXXXXX")"   # same directory, so the mv below is atomic; mode 600
+    # grep ends every kept line with a newline, so the appends never run
+    # into an unterminated last line.
+    grep -v -E '^[[:space:]]*(export[[:space:]]+)?(MQTT_BROKER|MQTT_PORT|MQTT_CAFILE|MQTT_USER|MQTT_PASS)=' \
+      "$ENV_FILE" > "$tmp" || true
+    {
+      echo "MQTT_BROKER=$MQTT_BROKER"
+      if [ "$MQTT_PORT" != 1883 ]; then echo "MQTT_PORT=$MQTT_PORT"; fi
+      if [ -n "$MQTT_CAFILE" ]; then echo "MQTT_CAFILE=$MQTT_CAFILE"; fi
+      if [ -n "$MQTT_USER" ]; then printf 'MQTT_USER=%s\nMQTT_PASS=%s\n' "$MQTT_USER" "$MQTT_PASS"; fi
+    } >> "$tmp"
+    chmod 600 "$tmp"
+    mv "$tmp" "$ENV_FILE"
+    ok "MQTT_* settings updated in $ENV_FILE (other keys kept, chmod 600)"
   fi
 
   # ----- test --------------------------------------------------------------

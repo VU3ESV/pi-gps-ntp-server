@@ -68,7 +68,9 @@ chmod 600 ~/.config/vu2cpl-shack.env
 ```
 
 `install.sh` asks for all of these on both the Pi and the Mac, and writes
-the cron env / `~/.config/vu2cpl-shack.env` for you.
+the cron env for you. On the Mac it updates only the `MQTT_*` lines of
+`~/.config/vu2cpl-shack.env`. Other keys in that shared file (`HA_*`,
+`UNIFI_*`, ...) are kept, and the previous file is saved as `.bak`.
 
 ## Broker with TLS (optional)
 
